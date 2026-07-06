@@ -1,0 +1,1 @@
+CreateObject("WScript.Shell").Run "cmd /c cd /d ""C:\Users\Admin\Desktop\OpportunityAI\opportunityos-ai"" && .\venv\Scripts\python.exe -m uvicorn backend.main:app --host 0.0.0.0 --port 8000", 0, False

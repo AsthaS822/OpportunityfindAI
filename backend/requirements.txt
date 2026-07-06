@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pandas
+openpyxl
+rapidfuzz
+httpx
+python-dotenv
+pydantic
+slowapi
+psutil
+cachetools

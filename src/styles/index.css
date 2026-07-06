@@ -1,0 +1,66 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
+  /* Colors */
+  --color-primary: #F97316;
+  --color-secondary: #2563EB;
+  --color-accent: #10B981;
+  
+  --color-background: #FFFFFF;
+  --color-background-alt-1: #FFF8F3;
+  --color-background-alt-2: #F7F9FC;
+  
+  --color-border: #EAEAEA;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6B7280;
+
+  /* Typography */
+  --font-heading: "Plus Jakarta Sans", sans-serif;
+  --font-body: "Inter", sans-serif;
+
+  /* Spacing */
+  --spacing-section: 120px;
+  --spacing-section-lg: 140px;
+  --spacing-card-p: 28px;
+  --spacing-card-p-lg: 36px;
+  --spacing-gap: 24px;
+  --spacing-gap-lg: 32px;
+  --container-max-w: 1280px;
+
+  /* Radius */
+  --radius-card: 24px;
+}
+
+@layer base {
+  body {
+    @apply font-body bg-background text-text-primary antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tight;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-white/70 backdrop-blur-[16px] border border-white/40;
+  }
+  .card-shadow {
+    @apply shadow-[0_8px_30px_rgb(0,0,0,0.04)];
+  }
+}
+
+@layer utilities {
+  .shadow-glow {
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.15);
+  }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
