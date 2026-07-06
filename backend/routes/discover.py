@@ -5,7 +5,6 @@ from ..config import RATE_LIMIT
 from ..schemas.request import DiscoverRequest
 from ..schemas.response import DiscoverResponse
 from ..services.master_decision_engine import master_decision_engine
-from ..services.gemini_service import gemini_service
 from ..services.response_builder import response_builder
 from ..cache.memory import search_cache, session_history, cache_get
 from ..utils.logger import get_logger
@@ -21,13 +20,7 @@ async def discover_opportunities(request: Request, body: DiscoverRequest):
     timings = {}
     session_id = body.session_id or "default"
 
-    cache_key = f"{body.query.lower().strip()}_{body.language}_{session_id}"
-    cached_response = cache_get(search_cache, cache_key, "search")
     session_history.add(body.query, session_id)
-
-    if cached_response:
-        logger.info(f"[CACHE HIT] {cache_key}")
-        return cached_response
 
     try:
         start_engine = time.time()
@@ -35,7 +28,6 @@ async def discover_opportunities(request: Request, body: DiscoverRequest):
 
         discovery_result = await master_decision_engine.discover(
             query=body.query.strip(),
-            language=body.language,
             session_id=session_id,
         )
         timings["engine"] = int((time.time() - start_engine) * 1000)
@@ -43,27 +35,30 @@ async def discover_opportunities(request: Request, body: DiscoverRequest):
         if discovery_result.get("status") == "error":
             return response_builder.build_response(
                 query=body.query,
-                language=body.language,
                 opportunities=[],
-                gemini_analysis={"summary": discovery_result.get("message", "Unknown error"), "ai_available": False},
+                ai_analysis={"summary": discovery_result.get("message", "Unknown error"), "ai_available": False},
                 thinking_steps=discovery_result.get("thinking_steps", ["Error occurred"]),
                 timings=timings,
             )
 
-        # Follow-up — no Gemini, no cache
+        # Follow-up — no cache
         if discovery_result.get("follow_up_required"):
             timings["total"] = int((time.time() - start_total) * 1000)
             intent_type = discovery_result.get("user_intent", "")
             fq = discovery_result.get("follow_up_questions", [])
             qual = discovery_result.get("missing_information", [])
-            summary = f"I'll help you find the best {intent_type.lower()} opportunities. To give you personalized recommendations, I need a few details."
-            if fq:
-                summary += f"\n\nPlease tell me:\n" + "\n".join(f"• {q}" for q in fq)
+            career_paths = discovery_result.get("career_paths", [])
+            if career_paths:
+                summary = "I'd like to understand your goals better. Which direction interests you?"
+            elif fq:
+                base = f"I'll help you find the best {intent_type.lower()} opportunities. To give you personalized recommendations, I need a few details."
+                summary = base + "\n\n" + "\n".join(f"• {q}" for q in fq)
+            else:
+                summary = f"I'll help you find the best {intent_type.lower()} opportunities."
             return response_builder.build_response(
                 query=body.query,
-                language=body.language,
                 opportunities=[],
-                gemini_analysis={"summary": summary, "roadmap": []},
+                ai_analysis={"summary": summary, "roadmap": []},
                 thinking_steps=["Analyzing your request..."],
                 timings=timings,
                 additional_data={
@@ -72,36 +67,32 @@ async def discover_opportunities(request: Request, body: DiscoverRequest):
                     "follow_up_questions": fq,
                     "follow_up_required": True,
                     "summary": summary,
+                    "career_paths": career_paths,
                 },
             )
 
-        gemini_analysis = {"summary": discovery_result.get("summary", ""), "roadmap": [], "ai_available": True}
+        # Use Groq reasoning from engine — no second Groq call
+        groq_reasoning = discovery_result.get("groq_reasoning", {})
+        ai_analysis = {
+            "summary": discovery_result.get("summary", ""),
+            "roadmap": groq_reasoning.get("roadmap", []),
+            "action_checklist": groq_reasoning.get("action_checklist", []),
+            "preparation_tips": groq_reasoning.get("preparation_tips", {}),
+            "ai_available": groq_reasoning.get("ai_available", True),
+            "reasoning": groq_reasoning.get("reasoning", []),
+            "recommendations": groq_reasoning.get("recommendations", []),
+            "comparison": groq_reasoning.get("comparison"),
+        }
 
-        if discovery_result.get("opportunities"):
-            start_gemini = time.time()
-            user_profile = discovery_result.get("user_profile", {})
-            gemini_analysis = await gemini_service.analyze_opportunities(
-                opportunities=discovery_result["opportunities"][:5],
-                query=body.query,
-                language=body.language,
-                verified_payload=discovery_result["opportunities"][:5],
-                user_profile=user_profile,
-            )
-            timings["gemini"] = int((time.time() - start_gemini) * 1000)
-        elif not discovery_result.get("opportunities"):
-            gemini_analysis = {
-                "summary": discovery_result.get("summary", "No verified opportunities found."),
-                "roadmap": [],
-                "ai_available": True,
-            }
+        if not discovery_result.get("opportunities"):
+            ai_analysis["summary"] = discovery_result.get("summary", "No verified opportunities found.")
 
         timings["total"] = int((time.time() - start_total) * 1000)
 
         final_response = response_builder.build_response(
             query=body.query,
-            language=body.language,
             opportunities=discovery_result.get("opportunities", []),
-            gemini_analysis=gemini_analysis,
+            ai_analysis=ai_analysis,
             thinking_steps=discovery_result.get("thinking_steps", []),
             timings=timings,
             additional_data={
@@ -115,12 +106,14 @@ async def discover_opportunities(request: Request, body: DiscoverRequest):
             },
         )
 
-        # Cache only successful responses with opportunities
-        if discovery_result.get("opportunities") and gemini_analysis.get("ai_available", True):
+        # Cache with intent-aware key
+        intent_key = discovery_result.get("user_intent", "unknown")
+        cache_key = f"{body.query.lower().strip()}|{intent_key}|{session_id}"
+        if discovery_result.get("opportunities") and ai_analysis.get("ai_available", True):
             search_cache[cache_key] = final_response
             logger.info(f"[CACHE SET] {cache_key}")
 
-        logger.info(f"[COMPLETE] {timings['total']}ms engine={timings.get('engine')} gemini={timings.get('gemini', 0)}")
+        logger.info(f"[COMPLETE] {timings['total']}ms engine={timings.get('engine')} intent={intent_key}")
         return final_response
 
     except Exception as e:
@@ -128,9 +121,8 @@ async def discover_opportunities(request: Request, body: DiscoverRequest):
         timings["total"] = int((time.time() - start_total) * 1000)
         return response_builder.build_response(
             query=body.query,
-            language=body.language,
             opportunities=[],
-            gemini_analysis={"summary": "Could not complete search. Please try again.", "ai_available": False},
+            ai_analysis={"summary": "Could not complete search. Please try again.", "ai_available": False},
             thinking_steps=["Searching datasets...", "Error occurred during processing"],
             timings=timings,
         )

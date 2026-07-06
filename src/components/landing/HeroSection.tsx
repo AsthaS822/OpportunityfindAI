@@ -1,11 +1,8 @@
 import { motion } from 'framer-motion';
 import { ArrowRight, Search, Sparkles, GraduationCap, Building2, Globe2 } from 'lucide-react';
-import { Button } from '../ui/Button';
 import { Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 
 export const HeroSection = () => {
-  const { t } = useTranslation();
   const containerVariants: any = {
     hidden: { opacity: 0 },
     visible: {
@@ -45,14 +42,16 @@ export const HeroSection = () => {
         >
           <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-orange-300 text-sm font-medium mb-8 w-fit shadow-sm">
             <Sparkles className="w-4 h-4" />
-            <span>{t('landing.hero_title')}</span>
+            <span>AI-Powered Opportunity Discovery</span>
           </motion.div>
           
-          <motion.h1 variants={itemVariants} className="text-[72px] leading-[1.05] font-bold font-heading text-white tracking-tight mb-6" dangerouslySetInnerHTML={{ __html: t('landing.hero_subtitle').replace('.', '.<br/><span class="bg-clip-text text-transparent bg-gradient-to-r from-orange-300 to-orange-400">').replace('।', '।</span>') + (t('landing.hero_subtitle').includes('।') ? '' : '</span>') }}>
+          <motion.h1 variants={itemVariants} className="text-[72px] leading-[1.05] font-bold font-heading text-white tracking-tight mb-6">
+            Your Future<br/>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-orange-300 to-orange-400">Starts Here</span>
           </motion.h1>
           
           <motion.p variants={itemVariants} className="text-[18px] text-white/80 leading-relaxed mb-10 max-w-[480px]">
-            {t('landing.hero_desc')}
+            Discover scholarships, fellowships, government schemes, education loans, and career opportunities tailored to your profile using AI-powered analysis.
           </motion.p>
           
           <motion.div variants={itemVariants} className="relative group max-w-[500px] mb-6">
@@ -62,9 +61,9 @@ export const HeroSection = () => {
                 <Search className="w-5 h-5" />
               </div>
               <span className="flex-1 text-white/40 py-3 text-[15px]">Ask anything about your education, career, funding, or study abroad...</span>
-              <Button type="button" className="h-[48px] w-[48px] flex items-center justify-center p-0 ml-2 group/btn rounded-2xl pointer-events-none">
+              <button type="button" className="h-[48px] w-[48px] flex items-center justify-center p-0 ml-2 group/btn rounded-2xl bg-gradient-to-r from-[#FF7A00] to-[#FF9A3D] text-white">
                 <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-0.5 transition-transform" />
-              </Button>
+              </button>
             </Link>
           </motion.div>
           
@@ -114,7 +113,7 @@ export const HeroSection = () => {
               <GraduationCap className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-sm font-bold text-white">{t('workspace.prompt_scholarships').replace('🎓 ', '')}</div>
+              <div className="text-sm font-bold text-white">Scholarships</div>
               <div className="text-xs text-white/60">10,000+ matched</div>
             </div>
           </motion.div>
@@ -128,7 +127,7 @@ export const HeroSection = () => {
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-sm font-bold text-white">{t('workspace.prompt_schemes').replace('🏛 ', '')}</div>
+              <div className="text-sm font-bold text-white">Government Schemes</div>
               <div className="text-xs text-white/60">Verified sources</div>
             </div>
           </motion.div>
@@ -142,8 +141,8 @@ export const HeroSection = () => {
               <Globe2 className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-sm font-bold text-white">{t('workspace.prompt_abroad').replace('🌍 ', '')}</div>
-              <div className="text-xs text-white/60">Study abroad</div>
+              <div className="text-sm font-bold text-white">Study Abroad</div>
+              <div className="text-xs text-white/60">Explore destinations</div>
             </div>
           </motion.div>
 

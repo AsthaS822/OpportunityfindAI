@@ -1,0 +1,36 @@
+{
+  "countries": [
+    "united states", "usa", "us", "uk", "united kingdom", "germany", "canada",
+    "australia", "india", "japan", "france", "netherlands", "sweden",
+    "switzerland", "singapore", "ireland", "austria", "belgium", "finland",
+    "europe", "new zealand", "south korea", "china", "uae", "dubai"
+  ],
+  "canonical": {
+    "us": "United States",
+    "usa": "United States",
+    "united states": "United States",
+    "uk": "United Kingdom",
+    "united kingdom": "United Kingdom",
+    "germany": "Germany",
+    "deutschland": "Germany",
+    "canada": "Canada",
+    "australia": "Australia",
+    "india": "India",
+    "japan": "Japan",
+    "france": "France",
+    "netherlands": "Netherlands",
+    "sweden": "Sweden",
+    "switzerland": "Switzerland",
+    "singapore": "Singapore",
+    "ireland": "Ireland",
+    "austria": "Austria",
+    "belgium": "Belgium",
+    "finland": "Finland",
+    "europe": "Europe",
+    "new zealand": "New Zealand",
+    "south korea": "South Korea",
+    "china": "China",
+    "uae": "UAE",
+    "dubai": "UAE"
+  }
+}

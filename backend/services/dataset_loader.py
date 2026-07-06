@@ -1,135 +1,182 @@
-import os
-import uuid
-import pandas as pd
-import json
-from typing import List
-from ..models.opportunity import InternalOpportunity
-from ..utils.logger import get_logger
+"""
+Dataset Loader — loads, parses, and indexes opportunities from local files.
+"""
 
+import json
+import csv
+from pathlib import Path
+from typing import Dict, List, Any, Optional
+from ..models.opportunity import InternalOpportunity
 from ..config import DATASET_PATH
+from ..utils.logger import get_logger
+import hashlib
 
 logger = get_logger(__name__)
 
+XLSX_AVAILABLE = False
+try:
+    import openpyxl
+    XLSX_AVAILABLE = True
+except ImportError:
+    pass
+
+
 class DatasetLoader:
     def __init__(self):
-        self.dataset_path = DATASET_PATH
         self.opportunities: List[InternalOpportunity] = []
-        self.stats = {
+        self.stats: Dict[str, Any] = {
             "files_loaded": 0,
-            "files_ignored": 0,
-            "row_breakdown": {}
+            "total_opportunities": 0,
+            "ignored_files": 0,
         }
 
-    def load_all(self):
-        logger.info(f"Starting recursive dataset loading from: {self.dataset_path}")
-        if not os.path.exists(self.dataset_path):
-            logger.error(f"Dataset path does not exist: {self.dataset_path}")
+    def load_all(self, path: Optional[Path] = None) -> None:
+        path = path or DATASET_PATH
+        if not path.exists():
+            logger.error(f"Dataset path not found: {path}")
             return
 
-        for root, dirs, files in os.walk(self.dataset_path):
-            for file in files:
-                file_path = os.path.join(root, file)
-                self._load_file(file_path)
-                
+        logger.info(f"Starting recursive dataset loading from: {path}")
+        all_opportunities: List[InternalOpportunity] = []
+        total_files = 0
+        ignored = 0
+
+        for file_path in sorted(path.iterdir()):
+            if not file_path.is_file():
+                continue
+            suffix = file_path.suffix.lower()
+            if suffix not in (".xlsx", ".json", ".csv"):
+                ignored += 1
+                continue
+
+            try:
+                loaded = self._load_file(file_path)
+                if loaded:
+                    all_opportunities.extend(loaded)
+                    logger.info(f"  - {file_path.name}: {len(loaded)} rows")
+                total_files += 1
+            except Exception as e:
+                logger.error(f"  - {file_path.name}: ERROR: {e}")
+
+        self.opportunities = all_opportunities
+        self.stats = {
+            "files_loaded": total_files,
+            "total_opportunities": len(all_opportunities),
+            "ignored_files": ignored,
+        }
+
         logger.info("=== Dataset Loading Summary ===")
-        logger.info(f"Total datasets: {self.stats['files_loaded']}")
-        logger.info(f"Total opportunities: {len(self.opportunities)}")
-        logger.info(f"Ignored files: {self.stats['files_ignored']}")
-        for fname, count in self.stats['row_breakdown'].items():
-            logger.info(f"  - {fname}: {count} rows")
+        logger.info(f"Total datasets: {total_files}")
+        logger.info(f"Total opportunities: {len(all_opportunities)}")
+        logger.info(f"Ignored files: {ignored}")
         logger.info("===============================")
 
-    def _load_file(self, file_path: str):
-        ext = os.path.splitext(file_path)[1].lower()
-        try:
-            if ext == '.csv':
-                self._load_csv(file_path)
-            elif ext == '.json':
-                self._load_json(file_path)
-            elif ext == '.xlsx':
-                self._load_xlsx(file_path)
-            else:
-                self.stats["files_ignored"] += 1
-                logger.warning(f"Unsupported file format ignored: {file_path}")
-        except Exception as e:
-            logger.error(f"Error loading {file_path}: {str(e)}")
+    def _load_file(self, file_path: Path) -> List[InternalOpportunity]:
+        suffix = file_path.suffix.lower()
+        if suffix == ".xlsx":
+            return self._load_xlsx(file_path)
+        elif suffix == ".json":
+            return self._load_json(file_path)
+        elif suffix == ".csv":
+            return self._load_csv(file_path)
+        return []
 
-    def _map_row(self, row: dict, source_file: str) -> InternalOpportunity:
-        # Simple heuristic mapping for potentially varying columns
-        def get_val(keys: List[str]):
-            for k in keys:
-                if k in row and pd.notna(row[k]) and str(row[k]).strip() != "":
-                    return str(row[k]).strip()
+    def _load_xlsx(self, file_path: Path) -> List[InternalOpportunity]:
+        if not XLSX_AVAILABLE:
+            logger.warning("openpyxl not installed — skipping XLSX")
+            return []
+        wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            wb.close()
+            return []
+
+        # Find the header row (first row with 3+ non-None values)
+        header_idx = 0
+        for i, row in enumerate(rows):
+            non_none = sum(1 for v in row if v is not None)
+            if non_none >= 3:
+                header_idx = i
+                break
+
+        headers = [str(h).lower().strip() if h else f"col_{j}" for j, h in enumerate(rows[header_idx])]
+        results = []
+        for row in rows[header_idx + 1:]:
+            if not any(v is not None for v in row):
+                continue
+            record = {}
+            for i, val in enumerate(row):
+                if i < len(headers):
+                    record[headers[i]] = str(val).strip() if val is not None else ""
+            opp = self._record_to_opportunity(record, file_path.name)
+            if opp:
+                results.append(opp)
+        wb.close()
+        return results
+
+    def _load_json(self, file_path: Path) -> List[InternalOpportunity]:
+        with open(file_path, encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Handle nested JSON: if dict, find the first list value (likely the records)
+        if isinstance(data, dict):
+            records = None
+            for v in data.values():
+                if isinstance(v, list) and len(v) > 0 and isinstance(v[0], dict):
+                    records = v
+                    break
+            if records is None:
+                records = [data]
+        else:
+            records = data if isinstance(data, list) else [data]
+
+        results = []
+        for record in records:
+            if isinstance(record, dict):
+                opp = self._record_to_opportunity(record, file_path.name)
+                if opp:
+                    results.append(opp)
+        return results
+
+    def _load_csv(self, file_path: Path) -> List[InternalOpportunity]:
+        results = []
+        with open(file_path, encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                opp = self._record_to_opportunity(dict(row), file_path.name)
+                if opp:
+                    results.append(opp)
+        return results
+
+    def _record_to_opportunity(self, record: Dict[str, str], source: str) -> Optional[InternalOpportunity]:
+        title = self._get_field(record, ["title", "name", "institution name", "institution_name", "scheme_name", "scholarship name", "opportunity name", "program name", "scholarship_name"])
+        if not title or len(title.strip()) < 3:
             return None
 
-        title = get_val(["title", "Name", "Opportunity Name", "Scholarship Name"]) or "Unknown Opportunity"
-        provider = get_val(["provider", "University", "Organization", "Institution"]) or "Unknown Provider"
-        country = get_val(["country", "Location", "Region"])
-        category = get_val(["category", "Type", "Opportunity Type"]) or "Scholarship"
-        degree = get_val(["degree", "Level", "Degree Level"])
-        funding_type = get_val(["funding", "Funding Type", "Value"])
-        deadline = get_val(["deadline", "Application Deadline", "End Date"])
-        eligibility = get_val(["eligibility", "Requirements"])
-        description = get_val(["description", "Details", "About"])
-        official_url = get_val(["official_url", "URL", "Link", "Website"])
-
-        # Determine default dataset ranking if present
-        dataset_ranking = get_val(["ranking", "QS Ranking", "World Rank"])
+        opp_id = hashlib.md5(f"{source}_{title}".encode()).hexdigest()[:12]
 
         return InternalOpportunity(
-            id=str(uuid.uuid4()),
+            id=opp_id,
             title=title,
-            provider=provider,
-            country=country,
-            category=category,
-            degree=degree,
-            funding_type=funding_type,
-            deadline=deadline,
-            eligibility=eligibility,
-            description=description,
-            official_url=official_url,
-            source_dataset=os.path.basename(source_file),
-            dataset_deadline=deadline,
-            dataset_ranking=dataset_ranking
+            provider=self._get_field(record, ["provider", "institution", "institution name", "university", "organization", "host institution", "funding organization", "award"]),
+            country=self._get_field(record, ["country", "location", "host country", "study country", "location name"]),
+            category=self._get_field(record, ["category", "type", "classification", "classification name", "scholarship type", "opportunity type", "schemeCategory"]),
+            degree=self._get_field(record, ["degree", "degree level", "level", "study level", "education level"]),
+            funding_type=self._get_field(record, ["funding type", "funding", "scholarship type", "financial coverage", "award"]),
+            deadline=self._get_field(record, ["deadline", "application deadline", "closing date", "due date"]),
+            eligibility=self._get_field(record, ["eligibility", "eligibility criteria", "requirements", "who can apply"]),
+            description=self._get_field(record, ["description", "details", "about", "overview", "summary", "benefits", "details"]),
+            official_url=self._get_field(record, ["official url", "url", "link", "website", "application link", "more info"]),
+            source_dataset=source,
         )
 
-    def _load_csv(self, file_path: str):
-        logger.info(f"Loading CSV: {file_path}")
-        df = pd.read_csv(file_path)
-        count = 0
-        for _, row in df.iterrows():
-            self.opportunities.append(self._map_row(row.to_dict(), file_path))
-            count += 1
-        self.stats["files_loaded"] += 1
-        self.stats["row_breakdown"][os.path.basename(file_path)] = count
+    def _get_field(self, record: Dict[str, str], possible_keys: List[str]) -> str:
+        for key in possible_keys:
+            val = record.get(key) or record.get(key.lower()) or record.get(key.replace(" ", "_")) or ""
+            if val and str(val).strip():
+                return str(val).strip()
+        return ""
 
-    def _load_json(self, file_path: str):
-        logger.info(f"Loading JSON: {file_path}")
-        count = 0
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            if isinstance(data, list):
-                for item in data:
-                    self.opportunities.append(self._map_row(item, file_path))
-                    count += 1
-            elif isinstance(data, dict):
-                for k, v in data.items():
-                    if isinstance(v, list):
-                        for item in v:
-                            if isinstance(item, dict):
-                                self.opportunities.append(self._map_row(item, file_path))
-                                count += 1
-        self.stats["files_loaded"] += 1
-        self.stats["row_breakdown"][os.path.basename(file_path)] = count
-
-    def _load_xlsx(self, file_path: str):
-        logger.info(f"Loading XLSX: {file_path}")
-        df = pd.read_excel(file_path)
-        count = 0
-        for _, row in df.iterrows():
-            self.opportunities.append(self._map_row(row.to_dict(), file_path))
-            count += 1
-        self.stats["files_loaded"] += 1
-        self.stats["row_breakdown"][os.path.basename(file_path)] = count
 
 dataset_loader = DatasetLoader()

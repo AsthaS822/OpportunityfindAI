@@ -8,7 +8,7 @@ export const AnalysisPanel = ({ active }: { active: boolean }) => {
           <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center">
             <Sparkles className="w-3 h-3 text-white" />
           </div>
-          <span className="font-heading font-semibold text-[14px] text-text-primary">OpportunityOS AI</span>
+          <span className="font-heading font-semibold text-[14px] text-text-primary">FutureOS</span>
         </div>
 
         {!active && (

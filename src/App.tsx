@@ -5,7 +5,7 @@ import { Footer } from './components/layout/Footer';
 import { PageTransition } from './components/motion/PageTransition';
 import { Container } from './components/layout/Container';
 import { Home } from './pages/Home';
-import { Discovery } from './pages/Discovery';
+import Discovery from './pages/Discovery';
 
 const Layout = () => (
   <div className="min-h-screen flex flex-col">

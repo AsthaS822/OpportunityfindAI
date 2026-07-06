@@ -2,7 +2,6 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export interface DiscoverRequest {
   query: string;
-  language: 'en' | 'hi';
   session_id?: string;
 }
 
@@ -59,9 +58,31 @@ export interface Opportunity {
   next_steps?: string[];
 }
 
+export interface GroqRecommendation {
+  title: string;
+  provider: string;
+  country: string;
+  why: string;
+  fit: string;
+  match_score: number;
+  key_requirements: string;
+  funding: string;
+  deadline: string;
+  action: string;
+}
+
+export interface GroqReasoning {
+  reasoning: string[];
+  recommendations: GroqRecommendation[];
+  comparison: string | null;
+  roadmap: string[];
+  action_checklist: string[];
+  preparation_tips: Record<string, string[]>;
+  ai_available: boolean;
+}
+
 export interface DiscoverResponse {
   query: string;
-  language: string;
   thinking_steps: string[];
   summary: string;
   roadmap: string[];
@@ -80,9 +101,14 @@ export interface DiscoverResponse {
   ai_explanation_available?: boolean;
   alternatives?: Array<{ type: string; title: string; provider: string; country?: string; reason: string; advantage: string; official_url?: string }>;
   action_checklist?: string[];
+  preparation_tips?: Record<string, string[]>;
+  career_paths?: Array<{ name: string; label: string; description: string }>;
+  recommendation_categories?: Record<string, Opportunity | null>;
+  recommendation_others?: Opportunity[];
+  groq_reasoning?: GroqReasoning;
 }
 
-const SESSION_KEY = 'opportunityos_session_id';
+const SESSION_KEY = 'futureos_session_id';
 
 export function getSessionId(): string {
   let id = sessionStorage.getItem(SESSION_KEY);
@@ -94,13 +120,12 @@ export function getSessionId(): string {
 }
 
 export async function discoverOpportunities(
-  query: string,
-  language: 'en' | 'hi' = 'en'
+  query: string
 ): Promise<DiscoverResponse> {
   const res = await fetch(`${API_BASE}/discover`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, language, session_id: getSessionId() }),
+    body: JSON.stringify({ query, session_id: getSessionId() }),
   });
   if (!res.ok) {
     throw new Error(`API error: ${res.status}`);

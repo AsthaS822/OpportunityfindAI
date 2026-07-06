@@ -1,6 +1,5 @@
 """
-Smart Query Parser — extracts structured intent from natural language.
-Backend brain: all reasoning starts here.
+Smart Query Parser — intent detection, entity extraction, exploratory vs personalized.
 """
 
 import re
@@ -10,7 +9,6 @@ from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Degree → domain/field inference for intelligent profile understanding
 DEGREE_FIELD_MAP = {
     "mca": "Computer Science", "bca": "Information Technology",
     "b.tech": "Engineering", "b.e": "Engineering", "m.tech": "Engineering",
@@ -25,7 +23,6 @@ DEGREE_FIELD_MAP = {
     "phd": "Research", "ph.d": "Research",
 }
 
-# Degree → career paths (what this degree naturally leads to)
 DEGREE_CAREER_PATHS = {
     "mca": [
         "Software Engineering", "Full Stack Development", "Cloud Engineering",
@@ -43,7 +40,6 @@ DEGREE_CAREER_PATHS = {
     "mba": ["Management Consulting", "Product Management", "Finance", "Marketing", "Operations", "Strategy"],
 }
 
-# Degree → study abroad compatible fields
 DEGREE_ABROAD_FIELDS = {
     "mca": "Computer Science, Data Science, AI, Information Systems",
     "bca": "Computer Science, Information Technology, Data Science",
@@ -52,16 +48,6 @@ DEGREE_ABROAD_FIELDS = {
     "b.com": "Finance, Business Analytics, International Business, Economics",
     "mba": "MBA, International Business, Finance, Marketing, Entrepreneurship",
 }
-
-# Career guidance trigger phrases
-CAREER_GUIDANCE_PATTERNS = [
-    r'opportunities?\s+(?:after|for|with|in)',
-    r'(?:what|what are|what is|tell me about|suggest|find)\s+(?:opportunities?|options?|careers?|paths?|scope)',
-    r'(?:after|post)\s+(?:completing|doing|finishing|graduating)\s+',
-    r'(?:career|job|future)\s+(?:options?|opportunities?|scope|prospects?)',
-    r'what\s+(?:can|should)\s+(?:i|we)\s+(?:do|become|pursue)',
-    r'(?:guide|counsel|advise|recommend)\s+(?:me|for|on)',
-]
 
 
 class QueryParser:
@@ -105,8 +91,51 @@ class QueryParser:
         "kolkata", "pune", "ahmedabad", "jaipur", "lucknow", "noida", "gurgaon",
     ]
 
+    # Phrases that signal the user is EXPLORING (no personal info needed)
+    EXPLORATORY_PATTERNS = [
+        r'opportunities?\s+in\s+\w+',
+        r'scholarships?\s+in\s+\w+',
+        r'phd\s+(?:opportunities?|positions?|programs?|in)\s+\w+',
+        r'masters?\s+(?:in|at|programs?|opportunities?)',
+        r'bachelors?\s+(?:in|at|programs?|opportunities?)',
+        r'universit(?:y|ies)\s+in\s+\w+',
+        r'programs?\s+in\s+\w+',
+        r'courses?\s+in\s+\w+',
+        r'funded\s+(?:phd|masters|positions?|programs?)',
+        r'(?:study|work|research)\s+(?:in|abroad|overseas)',
+        r'(?:daad|erasmus|fulbright|commonwealth|chevening)',
+        r'government\s+scheme',
+        r'education\s+loan',
+        r'list\s+(?:of\s+)?(?:scholarships|universities|programs|courses)',
+        r'top\s+(?:scholarships|universities|programs|courses)',
+        r'career\s+(?:after|opportunities|options|paths?)',
+        r'after\s+(?:mca|bca|b\.?tech|m\.?tech|bsc|msc|bcom|mcom|bba|mba|ba|ma|phd)',
+        r'jobs?\s+(?:in|after|for)',
+        r'internships?\s+(?:in|at|for|programs?)',
+        r'fellowships?\s+(?:in|at|programs?)',
+        r'grants?\s+(?:in|for)',
+        r'competitions?\s+(?:in|for)',
+        r'startup\s+(?:funding|grants?|schemes?)',
+        r'visa\s+(?:requirements?|process|types?)',
+        r'admission\s+(?:requirements?|process|deadlines?)',
+        r'ranking[s]?\s+(?:of|for|in)',
+    ]
+
+    # Phrases that signal PERSONALIZATION NEEDED
+    PERSONALIZATION_PATTERNS = [
+        r'(?:best|ideal|perfect|right|suitable)\s+(?:for|scholarship|opportunity)',
+        r'(?:for|to)\s+me\b',
+        r'(?:my|my profile|my background|my qualifications?)',
+        r'am\s+i\s+(?:eligible|qualified|fit)',
+        r'can\s+i\s+(?:get|apply|qualify|avail)',
+        r'recommend\s+(?:me|for me)',
+        r'suggest\s+(?:me|for me)',
+        r'what\s+(?:are my|should i|can i)',
+        r'chances?\s+(?:of|for|to)',
+        r'possible\s+for\s+me',
+    ]
+
     def _normalize_degree(self, raw: str) -> str:
-        """Normalize abbreviated degree names to canonical form."""
         raw = raw.lower().strip().replace(".", "")
         mapping = {
             "mca": "MCA", "bca": "BCA",
@@ -123,7 +152,6 @@ class QueryParser:
         return mapping.get(raw, raw.upper())
 
     def _infer_profile(self, q_lower: str, intent_obj: Dict) -> Dict:
-        """Infer user profile details from the query — degree → field, career paths, etc."""
         quals = []
         for d in [intent_obj.get("qualification"), intent_obj.get("degree")]:
             if d:
@@ -158,18 +186,64 @@ class QueryParser:
         intent_obj["inferred_field"] = inferred_field
         return intent_obj
 
-    def _detect_career_guidance(self, q_lower: str, intent_obj: Dict) -> bool:
-        """Detect if the query is asking for broad career guidance."""
-        for pat in CAREER_GUIDANCE_PATTERNS:
+    def _is_exploratory(self, q_lower: str) -> bool:
+        """True = search immediately, no follow-up needed. False = may need personalization info."""
+        for pat in self.EXPLORATORY_PATTERNS:
             if re.search(pat, q_lower):
                 return True
-        has_qualification = bool(intent_obj.get("qualification") or intent_obj.get("degree"))
-        is_vague = any(w in q_lower for w in ["opportunities", "options", "scope", "career", "future", "paths"])
-        return has_qualification and is_vague
+        # If it explicitly matches personalization, it's NOT exploratory
+        for pat in self.PERSONALIZATION_PATTERNS:
+            if re.search(pat, q_lower):
+                return False
+        # Short vague queries like "scholarships" are unclear — treat as exploratory
+        # unless they contain personalization keywords
+        return False
+
+    def _detect_career_guidance(self, q_lower: str, primary_intent: str = "") -> bool:
+        """Detect career guidance — but NOT when a specific degree/research intent is already detected."""
+        # If a specific academic intent is already detected, don't override
+        if primary_intent in ("PhD", "Masters", "Bachelor", "Research", "Research Grant",
+                               "Research Position", "Scholarship", "Fellowship", "Grant",
+                               "Exchange", "Competition", "Visa", "Admission", "Ranking"):
+            return False
+        # If the query name-drops a specific program/degree, don't override
+        if re.search(r'\b(phd|masters?|bachelors?|m\.?(sc|tech)|b\.?(sc|tech))\b', q_lower):
+            return False
+        patterns = [
+            r'(?:career|job|future)\s+(?:options?|opportunities?|scope|prospects?)',
+            r'(?:what|what are|what is|tell me about|suggest|find)\s+(?:careers?|options?|scope|paths?)',
+            r'what\s+(?:can|should)\s+(?:i|we)\s+(?:do|become|pursue)',
+            r'(?:guide|counsel|advise|recommend)\s+(?:me|for|on)',
+            r'career\s+(?:pathways?|roadmap|guidance|counseling)',
+            r'\b(mca|bca|b\.?tech|m\.?tech|bsc|msc|bcom|mcom|bba|mba)\s+career\b',
+        ]
+        for pat in patterns:
+            if re.search(pat, q_lower):
+                return True
+        # "after MCA", "after BCA" etc — specific degree career queries
+        if re.search(r'\b(after|post)\s+(mca|bca|b\.?tech|m\.?tech|bsc|msc|bcom|mcom|bba|mba)', q_lower):
+            return True
+        return False
 
     def parse(self, query: str, session_profile: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         q_lower = query.lower().strip()
         session_profile = session_profile or {}
+
+        # Primary intent detection FIRST
+        primary_intent = self._detect_intent(q_lower)
+
+        # Only override with Career Advice if no specific academic/program intent
+        if primary_intent in ("Opportunity Search", "Study Abroad", "Scholarship", "Internship", "Job Search", "Government Scheme", "Startup"):
+            if self._detect_career_guidance(q_lower, primary_intent):
+                primary_intent = "Career Advice"
+
+        # Determine if this is exploratory or personalized
+        is_exploratory = self._is_exploratory(q_lower)
+        # Override: if it's a personalization query, force not exploratory
+        for pat in self.PERSONALIZATION_PATTERNS:
+            if re.search(pat, q_lower):
+                is_exploratory = False
+                break
 
         intent_obj = {
             "original_query": query,
@@ -204,7 +278,6 @@ class QueryParser:
             "gmat": self._extract_test_score(q_lower, "gmat") or session_profile.get("gmat"),
             "sat": self._extract_test_score(q_lower, "sat") or session_profile.get("sat"),
             "act": self._extract_test_score(q_lower, "act") or session_profile.get("act"),
-            "language": self._extract_language(q_lower) or session_profile.get("language"),
             "preferred_intake": self._extract_intake(q_lower) or session_profile.get("preferred_intake"),
             "application_year": self._extract_application_year(q_lower) or session_profile.get("application_year"),
             "study_abroad": self._detect_study_abroad(q_lower, session_profile),
@@ -212,40 +285,39 @@ class QueryParser:
             "startup": "startup" in q_lower,
             "internship": "internship" in q_lower or "intern" in q_lower,
             "grant": "grant" in q_lower,
-            "competition": "competition" in q_lower,
+            "competition": "competition" in q_lower or "hackathon" in q_lower,
             "research": "research" in q_lower,
             "exchange_program": "exchange" in q_lower,
             "fellowship": "fellowship" in q_lower,
             "volunteer": "volunteer" in q_lower,
             "job": any(w in q_lower for w in ["job", "employment", "career", "position"]),
             "career_goal": self._extract_career_goal(q_lower) or session_profile.get("career_goal"),
-            "intent": self._detect_intent(q_lower),
+            "intent": primary_intent,
             "keywords": self._extract_keywords(q_lower),
             "inferred_career_paths": [],
             "inferred_field": None,
             "missing_information": [],
             "follow_up_required": False,
             "follow_up_questions": [],
+            "is_exploratory": is_exploratory,
         }
 
         # Step 1: Infer profile from detected degree/qualification
         intent_obj = self._infer_profile(q_lower, intent_obj)
 
-        # Step 2: Check for career guidance BEFORE final intent
-        is_career = self._detect_career_guidance(q_lower, intent_obj)
-        if is_career and intent_obj["intent"] in ("Opportunity Search", "Scholarship"):
-            intent_obj["intent"] = "Career Guidance"
-            intent_obj["study_abroad"] = True  # Enable study abroad exploration
-            intent_obj["scholarship"] = True    # Enable scholarship search
-            intent_obj["job"] = True
-            intent_obj["internship"] = True
-            intent_obj["fellowship"] = True
+        # Step 2: For exploratory queries — search immediately, no follow-up
+        if is_exploratory:
+            intent_obj["follow_up_required"] = False
+            intent_obj["follow_up_questions"] = []
+            intent_obj["missing_information"] = []
+            logger.info(f"Exploratory query — searching immediately. intent={primary_intent}")
+        else:
+            # Step 3: For personalized queries — detect what's missing minimally
+            intent_obj["missing_information"] = self._detect_missing(intent_obj)
+            intent_obj["follow_up_questions"] = self._build_follow_up_questions(intent_obj)
+            intent_obj["follow_up_required"] = self._should_ask_follow_up(intent_obj, query)
 
-        intent_obj["missing_information"] = self._detect_missing(intent_obj)
-        intent_obj["follow_up_questions"] = self._build_follow_up_questions(intent_obj)
-        intent_obj["follow_up_required"] = self._should_ask_follow_up(intent_obj, query)
-
-        logger.info(f"Structured intent: intent={intent_obj['intent']}, field={intent_obj.get('field')}, country={intent_obj['country']}, degree={intent_obj.get('qualification') or intent_obj.get('degree')}")
+        logger.info(f"Structured intent: intent={intent_obj['intent']}, exploratory={is_exploratory}, field={intent_obj.get('field')}, country={intent_obj['country']}")
         return intent_obj
 
     def _extract_countries(self, q: str) -> List[str]:
@@ -427,13 +499,6 @@ class QueryParser:
         m = re.search(rf'{test}[:\s]*(\d+(?:\.\d+)?)', q)
         return float(m.group(1)) if m else None
 
-    def _extract_language(self, q: str) -> Optional[str]:
-        langs = ["english", "german", "french", "spanish", "japanese", "hindi", "mandarin", "chinese"]
-        for lang in langs:
-            if lang in q:
-                return lang.title()
-        return None
-
     def _extract_intake(self, q: str) -> Optional[str]:
         if "fall" in q or "september" in q or "october" in q:
             return "Fall"
@@ -469,34 +534,110 @@ class QueryParser:
         return m.group(1).strip().title() if m else None
 
     def _detect_intent(self, q: str) -> str:
-        if self._detect_loan(q):
-            return "Education Loan"
-        if self._detect_government_scheme(q):
-            return "Government Scheme"
-        if "internship" in q or "intern" in q:
-            if any(w in q for w in ["opportunities", "options", "after", "career"]):
-                return "Career Guidance"
-            return "Internship"
-        if "job" in q or "employment" in q or "career" in q:
-            return "Job"
-        if "startup" in q or "entrepreneur" in q:
-            return "Startup"
-        if "grant" in q:
-            return "Grant"
-        if "competition" in q:
+        """Detect the most specific intent from the query. Order matters — more specific first."""
+        # Comparison
+        if any(w in q for w in ["compare", "vs ", "versus", "difference between", "which is better"]):
+            return "Comparison"
+        # Eligibility
+        if any(w in q for w in ["eligible", "can i get", "can i apply", "qualify", "chance", "possible for me", "am i eligible"]):
+            return "Eligibility Check"
+        # Visa
+        if any(w in q for w in ["visa", "student visa", "work visa", "visa process", "visa requirement"]):
+            return "Visa"
+        # Admission
+        if any(w in q for w in ["admission", "admissions", "application process", "how to apply", "apply to university"]):
+            return "Admission"
+        # Ranking
+        if any(w in q for w in ["ranking", "rankings", "top university", "best university", "world ranking"]):
+            return "Ranking"
+        # Hackathon / Competition
+        if "hackathon" in q or ("competition" in q and "scholarship" not in q):
             return "Competition"
+        # Startup / Incubator / Accelerator
+        if any(w in q for w in ["startup", "entrepreneur", "incubator", "accelerator", "venture capital"]):
+            return "Startup"
+        # Conference
+        if any(w in q for w in ["conference", "conferences", "academic conference", "research conference"]):
+            return "Conference"
+        # Journal / Publication
+        if any(w in q for w in ["journal", "publication", "research paper", "paper submission", "call for papers"]):
+            return "Journal"
+        # Research Grant
+        if any(w in q for w in ["research grant", "research funding", "research fellowship"]):
+            return "Research Grant"
+        # Research Position
+        if any(w in q for w in ["research position", "research assistant", "postdoc", "post-doctoral", "research scientist"]):
+            return "Research Position"
+        # Research (general)
         if "research" in q and "scholarship" not in q:
             return "Research"
+        # PhD
+        if re.search(r'\bphd\b', q) or re.search(r'\bph\.d\b', q) or re.search(r'\bdoctorate\b', q):
+            if any(w in q for w in ["position", "funded", "opportunity", "program", "scholarship"]):
+                return "PhD"
+            if "scholarship" in q or "funding" in q:
+                return "PhD"
+            return "PhD"
+        # Masters
+        if re.search(r'\bmasters?\b', q) or re.search(r'\bm\.sc\b', q) or re.search(r'\bm\.tech\b', q) or re.search(r'\bpostgraduate\b', q):
+            if any(w in q for w in ["scholarship", "funding", "funded", "program", "opportunity"]):
+                return "Masters"
+            return "Masters"
+        # Bachelor
+        if re.search(r'\bbachelors?\b', q) or re.search(r'\bb\.sc\b', q) or re.search(r'\bb\.tech\b', q) or re.search(r'\bundergraduate\b', q):
+            return "Bachelor"
+        # Exchange program
         if "exchange" in q:
-            return "Exchange Program"
+            return "Exchange"
+        # Fellowship
         if "fellowship" in q:
             return "Fellowship"
-        if "volunteer" in q:
-            return "Volunteer"
+        # Education Loan
+        if self._detect_loan(q):
+            return "Loan"
+        # Government Scheme
+        if self._detect_government_scheme(q):
+            return "Government Scheme"
+        # Funding (general funding search)
+        if any(w in q for w in ["funding", "funded", "financial support", "financial aid"]):
+            return "Funding"
+        # Internship
+        if "internship" in q or "intern" in q:
+            return "Internship"
+        # Job
+        if "job" in q or "employment" in q or "jobs" in q:
+            return "Job Search"
+        # Career Advice (with awareness of detected intent above)
+        already_intent = None
+        # Check if a specific intent was already matched
+        if re.search(r'\bphd\b', q) or re.search(r'\bmasters?\b', q) or re.search(r'\bbachelors?\b', q):
+            pass  # Let the specific intent stand
+        elif self._detect_career_guidance(q):
+            return "Career Advice"
+        # Grant
+        if "grant" in q:
+            return "Grant"
+        # Study Abroad
         if self._detect_study_abroad(q, {}):
             return "Study Abroad"
-        if any(w in q for w in ["scholarship", "fund", "sponsored", "fully funded"]):
+        # University Search
+        if any(w in q for w in ["university", "universities", "college", "colleges", "institute"]):
+            return "University Search"
+        # Course Search
+        if any(w in q for w in ["course", "courses", "program", "programs", "certificate", "diploma"]):
+            return "Course Search"
+        # Scholarship (fallback — must be last among specific)
+        if any(w in q for w in ["scholarship", "scholarships", "sponsored", "fully funded", "full ride"]):
             return "Scholarship"
+        # Explain / What is
+        if any(w in q for w in ["what is", "explain", "tell me about", "what does", "how does"]):
+            return "Explain"
+        # Decision help
+        if any(w in q for w in ["should i", "which one", "help me decide", "confused", "suggest"]):
+            return "Decision"
+        # Roadmap / How to
+        if any(w in q for w in ["roadmap", "how to", "step by step", "process", "procedure"]):
+            return "Roadmap"
         return "Opportunity Search"
 
     def _extract_keywords(self, q: str) -> str:
@@ -507,90 +648,169 @@ class QueryParser:
         return " ".join(remaining.split())
 
     def _detect_missing(self, intent: Dict) -> List[str]:
+        """Detect truly missing info — only for personalized queries, ask minimum."""
         missing = []
         intent_type = intent.get("intent", "")
 
-        if intent_type in ("Scholarship", "Study Abroad", "Fellowship", "Exchange Program"):
+        # Career Advice — only ask qualification if not present
+        if intent_type == "Career Advice":
+            if not intent.get("qualification") and not intent.get("degree"):
+                missing.append("Current qualification or degree")
+            return missing
+
+        # Eligibility Check — ask qualification + marks
+        if intent_type == "Eligibility Check":
+            if not intent.get("qualification") and not intent.get("degree"):
+                missing.append("Current qualification")
+            if not intent.get("cgpa") and not intent.get("marks"):
+                missing.append("Academic marks/CGPA")
+            return missing
+
+        # Comparison — no missing info needed
+        if intent_type == "Comparison":
+            return missing
+
+        # PhD / Masters / Bachelor / Exchange / Fellowship — country + degree
+        if intent_type in ("PhD", "Masters", "Bachelor", "Exchange", "Fellowship", "Study Abroad"):
             if not intent.get("country") and not intent.get("countries"):
                 missing.append("Target country")
-            if not intent.get("degree") and not intent.get("qualification"):
-                missing.append("Target degree or current qualification")
+            # Only ask degree for personalized "for me" queries
+            return missing
 
-        if intent_type in ("Scholarship", "Study Abroad") and not intent.get("marks") and not intent.get("cgpa"):
-            if "scholarship" in intent.get("original_query", "").lower():
-                missing.append("Academic marks/CGPA")
+        # Scholarship / Funding / Grant — country only
+        if intent_type in ("Scholarship", "Funding", "Grant", "Research Grant"):
+            if not intent.get("country") and not intent.get("countries"):
+                missing.append("Target country")
+            return missing
 
-        if intent.get("study_abroad") and not intent.get("ielts") and not intent.get("toefl"):
-            if "ielts" not in intent.get("original_query", "").lower():
-                missing.append("English test scores (IELTS/TOEFL)")
+        # Loan
+        if intent_type == "Loan":
+            if not intent.get("budget"):
+                missing.append("Budget/loan amount needed")
+            return missing
 
-        if intent_type == "Education Loan" and not intent.get("budget"):
-            missing.append("Budget/loan amount needed")
+        # Visa / Admission — no personal info needed
+        if intent_type in ("Visa", "Admission", "Ranking", "Conference", "Journal", "Competition"):
+            return missing
 
-        if intent_type in ("Job", "Internship") and not intent.get("work_experience"):
-            missing.append("Work experience")
+        # Job Search / Internship
+        if intent_type in ("Job Search", "Internship"):
+            if not intent.get("country") and not intent.get("countries"):
+                missing.append("Target country")
+            return missing
 
-        if intent_type == "Career Guidance" and not intent.get("qualification") and not intent.get("degree"):
-            missing.append("Current qualification or degree")
+        # University Search / Course Search
+        if intent_type in ("University Search", "Course Search"):
+            if not intent.get("country") and not intent.get("countries"):
+                missing.append("Target country")
+            return missing
+
+        # Startup / Government Scheme
+        if intent_type in ("Startup", "Government Scheme", "Research Position"):
+            return missing
+
+        # Fallback for Opportunity Search
+        if intent_type == "Opportunity Search":
+            if not intent.get("country") and not intent.get("countries"):
+                pass  # Don't force country — search broadly
 
         return missing
 
     def _build_follow_up_questions(self, intent: Dict) -> List[str]:
+        """Build targeted follow-up questions based on what's actually missing."""
         questions = []
-        mapping = {
-            "Target country": "Which country are you interested in?",
-            "Target degree or current qualification": "What is your current qualification and what degree are you targeting?",
-            "Academic marks/CGPA": "What is your current CGPA or percentage?",
-            "English test scores (IELTS/TOEFL)": "Have you taken IELTS or TOEFL? If yes, what score?",
-            "Budget/loan amount needed": "What is your budget or how much loan do you need?",
-            "Work experience": "How many years of work experience do you have?",
-        }
+        intent_type = intent.get("intent", "")
+
+        if intent_type == "Career Advice":
+            qual = intent.get("qualification") or ""
+            if any(k in qual.lower() for k in ["mca", "bca", "b.tech", "m.tech", "bsc", "msc", "bcom"]):
+                questions = [
+                    "Which area interests you most? (Higher Studies, Jobs, Study Abroad, Startups, Research, Certifications)"
+                ]
+            else:
+                questions = [
+                    "What is your current qualification?",
+                    "What are you looking for — higher studies, jobs, or scholarships?",
+                ]
+            return questions
+
+        if intent_type == "Eligibility Check":
+            questions = [
+                "Which opportunity or program are you checking eligibility for?",
+                "What is your highest qualification?",
+                "What is your CGPA or percentage?",
+            ]
+            return questions
+
+        if intent_type == "Comparison":
+            return [
+                "Which two opportunities would you like to compare?",
+                "What criteria matter most to you (funding, eligibility, deadlines)?",
+            ]
+
+        mapping = {}
         for item in intent.get("missing_information", []):
             if item in mapping:
                 questions.append(mapping[item])
-        if not questions and intent.get("intent") == "Career Guidance":
-            questions = [
-                "What is your current CGPA or percentage?",
-                "Which country are you interested in?",
-                "Have you taken IELTS or TOEFL?",
-                "What is your budget for studying?",
-            ]
+
+        # Only add personalized questions if the query truly needs them
+        if intent.get("is_exploratory"):
+            return []  # No follow-up for exploratory queries
+
+        # For personalized queries — minimal, targeted questions
+        if intent_type in ("PhD", "Masters", "Bachelor", "Exchange", "Fellowship", "Study Abroad"):
+            if not intent.get("country") and not intent.get("countries"):
+                questions.append("Which country are you interested in?")
+            return questions
+
+        if intent_type in ("Scholarship", "Funding", "Grant", "Research Grant"):
+            if not intent.get("country") and not intent.get("countries"):
+                questions.append("Which country are you interested in?")
+            return questions
+
+        if intent_type == "Loan":
+            questions.append("How much loan do you need?")
+            return questions
+
+        if intent_type in ("Job Search", "Internship"):
+            if not intent.get("country") and not intent.get("countries"):
+                questions.append("Which country are you interested in?")
+            return questions
+
         return questions
 
     def _should_ask_follow_up(self, intent: Dict, query: str) -> bool:
-        """Ask follow-up instead of searching when query is vague and critical info missing."""
-        vague_queries = ["scholarship", "scholarships", "show scholarships", "find opportunities",
-                         "help me", "what can i apply", "options", "opportunities",
-                         "opportunity", "career", "scope", "future"]
-        q_lower = query.lower().strip()
-        is_broad_career = intent.get("intent") in ("Career Guidance", "Opportunity Search", "Study Abroad")
+        """Ask follow-up only when query is personal and truly needs info."""
+        # Never ask for exploratory queries
+        if intent.get("is_exploratory"):
+            return False
 
-        # For broad queries, ask follow-ups about country, IELTS, CGPA even if qualification is known
-        if is_broad_career:
-            critical_missing = []
-            if not intent.get("country") and not intent.get("countries"):
-                critical_missing.append("Target country")
-            if not intent.get("cgpa") and not intent.get("marks") and not intent.get("percentage"):
-                critical_missing.append("Academic marks/CGPA")
-            if not intent.get("ielts") and not intent.get("toefl"):
-                if intent.get("study_abroad"):
-                    critical_missing.append("English test scores (IELTS/TOEFL)")
-            if critical_missing:
-                intent["missing_information"] = list(set(intent.get("missing_information", []) + critical_missing))
-                intent["follow_up_questions"] = self._build_follow_up_questions(intent)
-                return True
+        # Never ask for these intents
+        if intent.get("intent") in ("Comparison", "Visa", "Admission", "Ranking",
+                                     "Conference", "Journal", "Competition", "Startup",
+                                     "Explain", "Decision", "Roadmap"):
+            return False
 
-        is_vague = len(q_lower.split()) <= 4 or any(v in q_lower for v in vague_queries)
+        # Career Advice — ask only if no qualification
+        if intent.get("intent") == "Career Advice":
+            return not intent.get("qualification") and not intent.get("degree")
 
-        critical_missing = []
-        if not intent.get("country") and not intent.get("countries"):
-            if intent.get("intent") in ("Scholarship", "Study Abroad"):
-                critical_missing.append("country")
-        if not intent.get("qualification") and not intent.get("degree"):
-            if is_vague:
-                critical_missing.append("qualification")
+        # Eligibility Check — ask if missing qualification or marks
+        if intent.get("intent") == "Eligibility Check":
+            return not intent.get("qualification") or not intent.get("cgpa")
 
-        return is_vague and len(critical_missing) >= 1 and len(intent.get("follow_up_questions", [])) > 0
+        # For personalized queries that match personalization patterns
+        q_lower = query.lower()
+        is_personal = any(re.search(pat, q_lower) for pat in self.PERSONALIZATION_PATTERNS)
+
+        if is_personal:
+            # Only ask if critical info is missing
+            if intent.get("intent") in ("PhD", "Masters", "Bachelor", "Scholarship",
+                                         "Study Abroad", "Fellowship", "Exchange",
+                                         "Funding", "Grant"):
+                return not intent.get("country") and not intent.get("countries")
+
+        return False
 
     def to_search_params(self, intent: Dict) -> Dict[str, Any]:
         """Convert structured intent to search_engine params."""
@@ -605,17 +825,34 @@ class QueryParser:
 
         categories = []
         intent_map = {
-            "Scholarship": "scholarship", "Education Loan": "loan",
-            "Government Scheme": "scheme", "Internship": "internship",
-            "Fellowship": "fellowship", "Grant": "grant",
-            "Research": "research", "Job": "job",
+            "Scholarship": "scholarship", "Scholarship Search": "scholarship",
+            "Loan": "loan", "Loan Search": "loan",
+            "Government Scheme": "scheme",
+            "Internship": "internship", "Internship Search": "internship",
+            "Fellowship": "fellowship", "Fellowship Search": "fellowship",
+            "Grant": "grant", "Grant Search": "grant",
+            "Research": "research", "Research Search": "research",
+            "Research Grant": "research",
+            "Research Position": "research",
+            "PhD": "research", "PhD Search": "research",
+            "Masters": "", "Masters Search": "",
+            "Bachelor": "", "Bachelor Search": "",
+            "Exchange": "exchange program", "Exchange Search": "exchange program",
+            "Job Search": "job",
+            "Eligibility Check": "",
+            "Funding": "", "Competition": "competition", "Competition Search": "competition",
+            "University Search": "", "Course Search": "",
+            "Visa Search": "", "Admission Search": "",
+            "Conference Search": "", "Journal Search": "",
+            "Ranking Search": "", "Startup Search": "grant",
         }
         if intent.get("intent") in intent_map:
-            categories.append(intent_map[intent["intent"]])
-        elif intent.get("intent") == "Career Guidance":
-            categories = ["scholarship", "fellowship", "internship", "job", "grant"]
+            cat = intent_map[intent["intent"]]
+            if cat:
+                categories.append(cat)
+        elif intent.get("intent") == "Career Advice":
+            categories = ["job", "internship", "fellowship", "grant"]
 
-        # Add field-based category hints
         field = intent.get("field") or intent.get("inferred_field")
         if field and "Computer" in field and "scholarship" not in categories:
             categories.append("scholarship")

@@ -46,7 +46,7 @@ class RoadmapSchema(BaseModel):
     preparation_tips: Optional[Dict[str, List[str]]] = None
 
 
-class GeminiService:
+class GroqService:
     def _get_key(self):
         return os.getenv("GROQ_API_KEY")
 
@@ -135,7 +135,6 @@ class GeminiService:
         self,
         opportunities: Union[List, List[Dict]],
         query: str,
-        language: str = "en",
         verified_payload: Optional[List[Dict]] = None,
         user_profile: Optional[Dict] = None,
     ) -> Dict[str, Any]:
@@ -148,12 +147,13 @@ class GeminiService:
             "ai_available": False,
         }
         if not headers:
-            return {**fallback, "summary": "Groq API key not configured. Verified opportunities are still available."}
+            msg = "Groq API key not configured. Verified opportunities are still available."
+            return {**fallback, "summary": msg}
 
-        from ..cache.memory import gemini_cache, cache_get
+        from ..cache.memory import groq_cache, cache_get
 
-        cache_key = f"analysis_{query}_{language}"
-        cached = cache_get(gemini_cache, cache_key, "gemini")
+        cache_key = f"analysis_{query}"
+        cached = cache_get(groq_cache, cache_key, "groq")
         if cached:
             cached["ai_available"] = True
             return cached
@@ -178,12 +178,6 @@ class GeminiService:
                         "decision_analysis": getattr(opp, "decision_analysis", None),
                     })
 
-        lang_instruction = (
-            "Respond in plain, simple English."
-            if language == "en"
-            else "Respond in simple Hindi. NEVER translate University Names, Scholarship Names, Government Scheme Names, or Program Names — keep those in English."
-        )
-
         profile_context = ""
         if user_profile:
             qual = user_profile.get("qualification") or "not specified"
@@ -198,37 +192,58 @@ User Profile:
 {f"- Career paths: {', '.join(career_paths)}" if career_paths else ""}
 """
 
-        prompt = f"""You are the OpportunityOS AI Opportunity Advisor — an experienced career counselor, education consultant, scholarship advisor, visa advisor, research mentor, and government scheme expert combined.
-
-===========================
-PRIMARY OBJECTIVE
-===========================
-Help users make the best decision, not simply retrieve information. Every response should help the user understand what opportunities exist, whether they qualify, why they qualify, what to do next, and what alternatives exist. NEVER dump raw search results — synthesize them.
+        prompt = f"""You are FutureOS — a senior career and education consultant. You help users make informed decisions by analyzing opportunities against their profile. You never search the internet — you only analyze provided data.
 
 ===========================
 RULES
 ===========================
-1. Do NOT invent deadlines, rankings, universities, eligibility, stipend, funding, or links. Use ONLY the verified data provided.
-2. ONLY recommend opportunities genuinely relevant to the user's qualification and field. If an opportunity is clearly irrelevant, say it may not be a strong fit and move on.
-3. Explain why each opportunity fits the user's profile (qualification, field, country). Reason from the user's background.
-4. If CGPA or IELTS is mentioned, give specific advice. If the user has an MCA, infer Computer Science background. If BCom, recommend commerce-appropriate paths.
-5. Include a personalized preparation roadmap with timeline.
-6. Include an application checklist (documents, exams, steps).
-7. Compare multiple opportunities if available (pros/cons). Use a comparison format.
-8. Suggest alternative paths if the user might not qualify.
-9. If data has Unknown values, simply skip them — never say "not verified yet" or "unknown".
-10. Never use the words "dataset", "dataset only", "low confidence", "unknown provider", "moderate match", "confidence score".
-11. Use natural labels: "Good match", "Excellent fit", "Recommended", "Possible match".
-12. Be conversational. End every answer with suggested follow-up questions like "Compare opportunities", "Show deadlines", "Explain eligibility", "Estimate my chances", "Application checklist".
-13. If the user asks about opportunities after a degree, first outline career paths, study abroad options, then scholarships — not the reverse.
+1. NEVER invent deadlines, rankings, university names, eligibility criteria, funding amounts, or links. Use ONLY the verified data provided.
+2. If data for a field says "Unknown", simply skip it — never say "unknown", "not available", or "not verified".
+3. NEVER use these words: "dataset", "dataset only", "low confidence", "unknown provider", "confidence score", "moderate match", "unverified".
+4. Instead use natural labels: "Excellent fit", "Good match", "Possible match", "Recommended", "Strong option", "Worth exploring".
+5. Only recommend opportunities genuinely relevant to the user's qualification and field. If irrelevant, say it may not be a strong fit.
+6. Explain WHY each opportunity fits — reason from the user's qualification, field, and country.
+7. Be conversational and consultant-like. End with suggested follow-up actions.
+8. Never recommend unavailable programs or opportunities not in the provided data.
+
+===========================
+STRUCTURE YOUR RESPONSE
+===========================
+Your response must be valid JSON with these fields:
+
+1. "summary" (string) — A detailed, consultant-style overview:
+   - Start with: "Based on your profile as [qualification] in [field], here's what I found."
+   - Explain the top 1-2 opportunities and WHY they fit
+   - Note what's missing if applicable (e.g., CGPA, IELTS)
+   - End with a clear recommendation
+
+2. "roadmap" (list of strings) — 4-5 step action plan in order:
+   - Step 1: Check eligibility requirements
+   - Step 2: Prepare required documents
+   - Step 3: Take required exams (IELTS, GRE, etc.)
+   - Step 4: Submit application before deadline
+   - Step 5: Prepare for interview/selection process
+
+3. "action_checklist" (list of strings) — Concrete tasks:
+   - "Review eligibility criteria for [opportunity name]"
+   - "Prepare statement of purpose"
+   - "Gather academic transcripts"
+   - "Take English proficiency test"
+   - etc.
+
+4. "preparation_tips" (object) — Category→list of tips:
+   - "documents": ["tip 1", "tip 2"]
+   - "exams": ["tip 1", "tip 2"]
+   - "application": ["tip 1", "tip 2"]
+   - "interview": ["tip 1", "tip 2"]
 
 {profile_context}
 User query: {query}
 Verified opportunities JSON: {json.dumps(opp_data, default=str)}
 
-{lang_instruction}
+Respond in plain, simple English.
 
-Respond ONLY with valid JSON. Do not include any other text. JSON fields: summary (string — detailed personalized assessment), roadmap (list of strings — step by step application plan), action_checklist (list of strings — documents and tasks), preparation_tips (object with category as key and list of tips as value).
+Respond ONLY with valid JSON. No other text. JSON fields: summary (string), roadmap (list of strings), action_checklist (list of strings), preparation_tips (object with category keys and list-of-strings values).
 """
 
         payload = {
@@ -249,11 +264,11 @@ Respond ONLY with valid JSON. Do not include any other text. JSON fields: summar
         try:
             res = json.loads(text)
             res["ai_available"] = True
-            gemini_cache[cache_key] = res
+            groq_cache[cache_key] = res
             return res
         except Exception as e:
             logger.error(f"Groq analysis parse error: {e}")
             return fallback
 
 
-gemini_service = GeminiService()
+groq_service = GroqService()

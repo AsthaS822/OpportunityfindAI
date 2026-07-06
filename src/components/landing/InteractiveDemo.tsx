@@ -55,7 +55,7 @@ export const InteractiveDemo = () => {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
                     </span>
-                    OpportunityOS AI is thinking...
+                    FutureOS is thinking...
                   </div>
                   
                   <div className="space-y-3 pl-6">

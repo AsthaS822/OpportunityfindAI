@@ -1,6 +1,6 @@
-# OpportunityOS AI Backend
+# FutureOS AI Backend
 
-This is the production-ready FastAPI backend for OpportunityOS AI. It integrates a rule-based fuzzy search engine over local datasets and pairs it with real-time verification using the Jina Search and Reader APIs. Final analysis, summaries, and application roadmaps are generated using Google Gemini.
+This is the production-ready FastAPI backend for FutureOS AI. It integrates a rule-based fuzzy search engine over local datasets and pairs it with real-time verification using the Jina Search and Reader APIs. Final analysis, summaries, and application roadmaps are generated using Google Gemini.
 
 ## Architecture Highlights
 - **No Database Needed**: Datasets in `../Dataset/` are loaded into memory on startup.

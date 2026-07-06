@@ -1,0 +1,115 @@
+{
+  "field_map": {
+    "mca": "Computer Science",
+    "bca": "Information Technology",
+    "b.tech": "Engineering",
+    "b.e": "Engineering",
+    "m.tech": "Engineering",
+    "b.sc": "Science",
+    "m.sc": "Science",
+    "bsc": "Science",
+    "msc": "Science",
+    "b.com": "Commerce",
+    "m.com": "Commerce",
+    "bcom": "Commerce",
+    "mcom": "Commerce",
+    "bba": "Business Administration",
+    "mba": "Business Administration",
+    "ba": "Arts",
+    "ma": "Arts",
+    "mbbs": "Medicine",
+    "bds": "Dentistry",
+    "llb": "Law",
+    "llm": "Law",
+    "phd": "Research",
+    "ph.d": "Research"
+  },
+  "career_paths": {
+    "mca": [
+      "Software Engineering",
+      "Full Stack Development",
+      "Cloud Engineering",
+      "DevOps",
+      "Data Science",
+      "AI/ML Engineering",
+      "Cyber Security",
+      "Database Administration",
+      "System Architecture",
+      "IT Consulting",
+      "Government IT Officer",
+      "Research Associate"
+    ],
+    "bca": [
+      "MCA",
+      "Software Development",
+      "Web Development",
+      "Cloud Computing",
+      "Cyber Security",
+      "Data Analytics",
+      "IT Support",
+      "Digital Marketing"
+    ],
+    "b.tech": [
+      "Engineering Roles",
+      "R&D",
+      "Product Development",
+      "Consulting",
+      "Government Engineering"
+    ],
+    "bsc": [
+      "Research",
+      "MSc",
+      "PhD",
+      "Lab Technician",
+      "Data Analysis",
+      "Science Communication"
+    ],
+    "b.com": [
+      "Accounting",
+      "Finance",
+      "Banking",
+      "CA",
+      "CFA",
+      "Business Analytics",
+      "Government Finance"
+    ],
+    "mba": [
+      "Management Consulting",
+      "Product Management",
+      "Finance",
+      "Marketing",
+      "Operations",
+      "Strategy"
+    ]
+  },
+  "abroad_fields": {
+    "mca": "Computer Science, Data Science, AI, Information Systems",
+    "bca": "Computer Science, Information Technology, Data Science",
+    "b.tech": "Engineering, Computer Science, Robotics, Renewable Energy",
+    "bsc": "Physics, Chemistry, Biology, Environmental Science, Data Science",
+    "b.com": "Finance, Business Analytics, International Business, Economics",
+    "mba": "MBA, International Business, Finance, Marketing, Entrepreneurship"
+  },
+  "normalization": {
+    "mca": "MCA",
+    "bca": "BCA",
+    "btech": "B.Tech",
+    "mtech": "M.Tech",
+    "be": "B.E.",
+    "me": "M.E.",
+    "bsc": "B.Sc",
+    "msc": "M.Sc",
+    "bcom": "B.Com",
+    "mcom": "M.Com",
+    "bba": "BBA",
+    "mba": "MBA",
+    "ba": "B.A.",
+    "ma": "M.A.",
+    "mbbs": "MBBS",
+    "bds": "BDS",
+    "llb": "LLB",
+    "llm": "LLM",
+    "phd": "PhD",
+    "ph.d": "PhD"
+  }
+}

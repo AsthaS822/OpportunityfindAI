@@ -1,0 +1,183 @@
+{
+  "intent_rules": [
+    {
+      "intent": "Comparison",
+      "priority": 100,
+      "keywords": ["compare", "vs ", "versus", "difference between", "which is better"]
+    },
+    {
+      "intent": "Eligibility Check",
+      "priority": 95,
+      "keywords": ["eligible", "can i get", "can i apply", "qualify", "chance", "possible for me", "am i eligible"]
+    },
+    {
+      "intent": "Visa",
+      "priority": 90,
+      "keywords": ["visa", "student visa", "work visa", "visa process", "visa requirement"]
+    },
+    {
+      "intent": "Admission",
+      "priority": 85,
+      "keywords": ["admission", "admissions", "application process", "how to apply", "apply to university"]
+    },
+    {
+      "intent": "Ranking",
+      "priority": 80,
+      "keywords": ["ranking", "rankings", "top university", "best university", "world ranking"]
+    },
+    {
+      "intent": "Competition",
+      "priority": 75,
+      "keywords": ["hackathon", "competition"]
+    },
+    {
+      "intent": "Startup",
+      "priority": 74,
+      "keywords": ["startup", "entrepreneur", "incubator", "accelerator", "venture capital"]
+    },
+    {
+      "intent": "Conference",
+      "priority": 73,
+      "keywords": ["conference", "conferences", "academic conference", "research conference"]
+    },
+    {
+      "intent": "Journal",
+      "priority": 72,
+      "keywords": ["journal", "publication", "research paper", "paper submission", "call for papers"]
+    },
+    {
+      "intent": "Research Grant",
+      "priority": 71,
+      "keywords": ["research grant", "research funding", "research fellowship"]
+    },
+    {
+      "intent": "Research Position",
+      "priority": 70,
+      "keywords": ["research position", "research assistant", "postdoc", "post-doctoral", "research scientist"]
+    },
+    {
+      "intent": "PhD",
+      "priority": 65,
+      "patterns": ["\\bphd\\b", "\\bph\\.d\\b", "\\bdoctorate\\b"]
+    },
+    {
+      "intent": "Masters",
+      "priority": 60,
+      "patterns": ["\\bmasters?\\b", "\\bm\\.sc\\b", "\\bm\\.tech\\b", "\\bpostgraduate\\b"]
+    },
+    {
+      "intent": "Bachelor",
+      "priority": 55,
+      "patterns": ["\\bbachelors?\\b", "\\bb\\.sc\\b", "\\bb\\.tech\\b", "\\bundergraduate\\b"]
+    },
+    {
+      "intent": "Exchange",
+      "priority": 50,
+      "keywords": ["exchange"]
+    },
+    {
+      "intent": "Fellowship",
+      "priority": 49,
+      "keywords": ["fellowship"]
+    },
+    {
+      "intent": "Loan",
+      "priority": 48,
+      "keywords": ["loan", "education loan", "student loan", "financing", "credit"]
+    },
+    {
+      "intent": "Government Scheme",
+      "priority": 47,
+      "keywords": ["scheme", "government", "govt", "ministry", "aicte", "ugc", "nsp"]
+    },
+    {
+      "intent": "Funding",
+      "priority": 46,
+      "keywords": ["funding", "funded", "financial support", "financial aid"]
+    },
+    {
+      "intent": "Internship",
+      "priority": 45,
+      "keywords": ["internship", "intern"]
+    },
+    {
+      "intent": "Job Search",
+      "priority": 44,
+      "keywords": ["job", "employment", "jobs"]
+    },
+    {
+      "intent": "Grant",
+      "priority": 43,
+      "keywords": ["grant"]
+    },
+    {
+      "intent": "Study Abroad",
+      "priority": 42,
+      "keywords": ["abroad", "overseas", "international", "foreign", "study abroad", "global"]
+    },
+    {
+      "intent": "University Search",
+      "priority": 41,
+      "keywords": ["university", "universities", "college", "colleges", "institute"]
+    },
+    {
+      "intent": "Course Search",
+      "priority": 40,
+      "keywords": ["course", "courses", "program", "programs", "certificate", "diploma"]
+    },
+    {
+      "intent": "Scholarship",
+      "priority": 39,
+      "keywords": ["scholarship", "scholarships", "sponsored", "fully funded", "full ride"]
+    },
+    {
+      "intent": "Career Advice",
+      "priority": 38,
+      "patterns": [
+        "(?:career|job|future)\\s+(?:options?|opportunities?|scope|prospects?)",
+        "(?:what|what are|what is|tell me about|suggest|find)\\s+(?:careers?|options?|scope|paths?)",
+        "what\\s+(?:can|should)\\s+(?:i|we)\\s+(?:do|become|pursue)",
+        "\\b(after|post)\\s+(mca|bca|b\\.?tech|m\\.?tech|bsc|msc|bcom|mcom|bba|mba)"
+      ]
+    },
+    {
+      "intent": "Explain",
+      "priority": 20,
+      "keywords": ["what is", "explain", "tell me about", "what does", "how does"]
+    },
+    {
+      "intent": "Decision",
+      "priority": 19,
+      "keywords": ["should i", "which one", "help me decide", "confused", "suggest"]
+    },
+    {
+      "intent": "Roadmap",
+      "priority": 18,
+      "keywords": ["roadmap", "how to", "step by step", "process", "procedure"]
+    },
+    {
+      "intent": "Opportunity Search",
+      "priority": 1,
+      "keywords": []
+    }
+  ],
+  "exploratory_patterns": [
+    "opportunities?\\s+in\\s+\\w+",
+    "scholarships?\\s+in\\s+\\w+",
+    "phd\\s+(?:opportunities?|positions?|programs?|in)\\s+\\w+",
+    "masters?\\s+(?:in|at|programs?|opportunities?)",
+    "funded\\s+(?:phd|masters|positions?|programs?)",
+    "(?:study|work|research)\\s+(?:in|abroad|overseas)",
+    "list\\s+(?:of\\s+)?(?:scholarships|universities|programs|courses)",
+    "top\\s+(?:scholarships|universities|programs|courses)"
+  ],
+  "personalization_patterns": [
+    "(?:best|ideal|perfect|right|suitable)\\s+(?:for|scholarship|opportunity)",
+    "(?:for|to)\\s+me\\b",
+    "(?:my|my profile|my background|my qualifications?)",
+    "am\\s+i\\s+(?:eligible|qualified|fit)",
+    "can\\s+i\\s+(?:get|apply|qualify|avail)",
+    "recommend\\s+(?:me|for me)",
+    "suggest\\s+(?:me|for me)"
+  ]
+}

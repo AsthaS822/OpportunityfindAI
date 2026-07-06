@@ -68,7 +68,7 @@ class UserProfileExtractor:
             "budget": self._extract_budget(q_lower),
             "is_domestic": self._is_domestic_search(q_lower),
             "intake_preference": self._extract_intake(q_lower),
-            "language_preference": self._extract_language_pref(q_lower),
+
             "missing_information": [],
         }
         
@@ -230,12 +230,6 @@ class UserProfileExtractor:
         elif any(word in q_lower for word in ["abroad", "international", "overseas", "foreign"]):
             return False
         return None
-    
-    def _extract_language_pref(self, q_lower: str) -> str:
-        """Extract language preference."""
-        if "hindi" in q_lower or "hinglish" in q_lower:
-            return "hi"
-        return "en"
     
     def _detect_missing(self, profile: Dict[str, Any]) -> List[str]:
         """Detect what critical information is missing."""

@@ -1,18 +1,18 @@
 from cachetools import TTLCache
 from typing import Dict, Any, List, Optional
-from ..config import CACHE_SEARCH_TTL, CACHE_JINA_TTL, CACHE_GEMINI_TTL
+from ..config import CACHE_SEARCH_TTL, CACHE_JINA_TTL, CACHE_GROQ_TTL
 
 search_cache = TTLCache(maxsize=1000, ttl=CACHE_SEARCH_TTL)
 jina_cache = TTLCache(maxsize=1000, ttl=CACHE_JINA_TTL)
-gemini_cache = TTLCache(maxsize=1000, ttl=CACHE_GEMINI_TTL)
+groq_cache = TTLCache(maxsize=1000, ttl=CACHE_GROQ_TTL)
 
 _cache_stats = {
     "search_hits": 0,
     "search_misses": 0,
     "jina_hits": 0,
     "jina_misses": 0,
-    "gemini_hits": 0,
-    "gemini_misses": 0,
+    "groq_hits": 0,
+    "groq_misses": 0,
 }
 
 
@@ -21,7 +21,7 @@ def get_cache_stats() -> Dict[str, Any]:
         **_cache_stats,
         "search_size": len(search_cache),
         "jina_size": len(jina_cache),
-        "gemini_size": len(gemini_cache),
+        "groq_size": len(groq_cache),
     }
 
 

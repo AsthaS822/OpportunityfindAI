@@ -6,7 +6,7 @@ import psutil
 import platform
 from ..services.dataset_loader import dataset_loader
 from ..config import BACKEND_VERSION
-from ..cache.memory import get_cache_stats, search_cache, jina_cache, gemini_cache
+from ..cache.memory import get_cache_stats, search_cache, jina_cache, groq_cache
 
 router = APIRouter()
 
@@ -67,7 +67,7 @@ async def health_check(request: Request):
         "cache_sizes": {
             "search": len(search_cache),
             "jina": len(jina_cache),
-            "gemini": len(gemini_cache),
+            "groq": len(groq_cache),
         },
         "groq_status": groq_status,
         "jina_status": jina_status,

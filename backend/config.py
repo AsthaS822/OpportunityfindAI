@@ -22,7 +22,7 @@ REQUEST_TIMEOUT = 20.0
 
 # Cache TTLs (Seconds)
 CACHE_SEARCH_TTL = 1800      # 30 mins
-CACHE_GEMINI_TTL = 1800      # 30 mins
+CACHE_GROQ_TTL = 1800      # 30 mins
 CACHE_JINA_TTL = 21600       # 6 hours
 
 # App Information

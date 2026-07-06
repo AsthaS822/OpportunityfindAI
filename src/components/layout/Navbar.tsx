@@ -20,17 +20,10 @@ export const Navbar = () => {
               O
             </div>
             <div>
-              <span className="font-heading text-[15px] font-bold tracking-tight text-text-primary">OpportunityOS AI</span>
-              <p className="text-[10px] text-text-secondary leading-none">Your AI Opportunity Advisor</p>
+              <span className="font-heading text-[15px] font-bold tracking-tight text-text-primary">FutureOS</span>
+              <p className="text-[10px] text-text-secondary leading-none">Your AI Career Advisor</p>
             </div>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-[10px] font-medium text-emerald-700">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Verified Sources Enabled
-          </span>
         </div>
       </div>
     </header>

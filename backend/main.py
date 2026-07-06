@@ -76,6 +76,15 @@ async def lifespan(app: FastAPI):
     logger.info("Loading datasets...")
 
     dataset_loader.load_all()
+    
+    # Initialize dataset analyzer
+    logger.info("Initializing dataset analyzer...")
+    try:
+        from backend.services.dataset_analyzer import dataset_analyzer
+        dataset_analyzer.analyze_and_index()
+        logger.info("Dataset analyzer ready")
+    except Exception as e:
+        logger.error(f"Failed to initialize dataset analyzer: {e}")
 
     app.state.start_time = APP_START_TIME
 
@@ -90,7 +99,7 @@ async def lifespan(app: FastAPI):
 # --------------------------------------------------
 
 app = FastAPI(
-    title="OpportunityOS AI Backend",
+    title="FutureOS Backend",
     description="AI Decision Intelligence Platform",
     version=BACKEND_VERSION,
     lifespan=lifespan,

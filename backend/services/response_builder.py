@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Union
-from ..schemas.response import DiscoverResponse, VerificationMetadata, AlternativeSchema
+from ..schemas.response import DiscoverResponse, VerificationMetadata, AlternativeSchema, GroqReasoningSchema
 from ..schemas.opportunity import OpportunitySchema, DecisionAnalysisSchema, EligibilityAnalysisSchema
 from ..models.opportunity import InternalOpportunity
 from ..utils.helpers import format_timestamp
@@ -9,22 +9,37 @@ class ResponseBuilder:
     def build_response(
         self,
         query: str,
-        language: str,
         opportunities: Union[List[InternalOpportunity], List[Dict[str, Any]]],
-        gemini_analysis: Dict[str, Any],
+        ai_analysis: Dict[str, Any],
         thinking_steps: List[str],
         timings: Dict[str, int],
         additional_data: Dict[str, Any] = None,
     ) -> DiscoverResponse:
         opp_schemas = []
         live_verified_count = 0
+        dataset_count = 0
+        web_count = 0
         additional_data = additional_data or {}
 
         for opp in opportunities:
+            # Count sources
             if isinstance(opp, dict):
+                source = opp.get("source_type", "Dataset")
                 vstatus = opp.get("verification", {}).get("status", "")
-                if "Live Verified" in vstatus or "Verified" in vstatus:
-                    live_verified_count += 1
+            else:
+                source = getattr(opp, "source_type", "Dataset")
+                vstatus = (opp.verification or {}).get("status", "")
+            
+            if "Live Web" in source or "Web" in source:
+                web_count += 1
+                live_verified_count += 1
+            else:
+                dataset_count += 1
+            
+            if "Live Verified" in vstatus or "Verified" in vstatus:
+                live_verified_count += 1
+            
+            if isinstance(opp, dict):
                 da = opp.get("decision_analysis") or {}
                 ea = da.get("eligibility_analysis") or {}
                 opp_schemas.append(OpportunitySchema(
@@ -72,8 +87,6 @@ class ResponseBuilder:
                     next_steps=opp.get("next_steps"),
                 ))
             else:
-                if "Live Verified" in (opp.verification or {}).get("status", ""):
-                    live_verified_count += 1
                 opp_schemas.append(OpportunitySchema(
                     id=opp.id,
                     title=opp.title,
@@ -90,8 +103,23 @@ class ResponseBuilder:
                     match_score=opp.match_score,
                 ))
 
+        # Build verification summary with source breakdown
+        source_info = []
+        if dataset_count > 0:
+            source_info.append(f"{dataset_count} from verified dataset")
+        if web_count > 0:
+            source_info.append(f"{web_count} from live web verification")
+        
+        verification_status = "Hybrid verification complete"
+        if web_count > 0 and dataset_count > 0:
+            verification_status = f"Combined dataset + live web search ({dataset_count} dataset, {web_count} web-verified)"
+        elif web_count > 0:
+            verification_status = f"Live web verification ({web_count} sources)"
+        elif dataset_count > 0:
+            verification_status = f"Dataset search ({dataset_count} opportunities)"
+
         verification = VerificationMetadata(
-            status="Official sources verified" if live_verified_count > 0 else "Information verified from official sources",
+            status=verification_status,
             sources_checked=len(opportunities),
             official_sources=live_verified_count,
         )
@@ -106,14 +134,27 @@ class ResponseBuilder:
         for a in additional_data.get("alternatives", []):
             alts.append(AlternativeSchema(**a))
 
-        ai_available = gemini_analysis.get("ai_available", True)
+        ai_available = ai_analysis.get("ai_available", True)
+
+        # Build groq_reasoning from ai_analysis if present
+        groq_reasoning = None
+        reasoning_data = ai_analysis.get("reasoning")
+        if reasoning_data is not None:
+            groq_reasoning = GroqReasoningSchema(
+                reasoning=reasoning_data,
+                recommendations=ai_analysis.get("recommendations", []),
+                comparison=ai_analysis.get("comparison"),
+                roadmap=ai_analysis.get("roadmap", []),
+                action_checklist=ai_analysis.get("action_checklist", []),
+                preparation_tips=ai_analysis.get("preparation_tips", {}),
+                ai_available=ai_available,
+            )
 
         return DiscoverResponse(
             query=query,
-            language=language,
             thinking_steps=thinking_steps,
-            summary=gemini_analysis.get("summary", additional_data.get("summary", "No summary available.")),
-            roadmap=gemini_analysis.get("roadmap", []),
+            summary=ai_analysis.get("summary", additional_data.get("summary", "No summary available.")),
+            roadmap=ai_analysis.get("roadmap", []),
             opportunities=opp_schemas,
             verification_summary=verification,
             official_links=list(set(official_links)),
@@ -128,8 +169,10 @@ class ResponseBuilder:
             follow_up_required=additional_data.get("follow_up_required", False),
             ai_explanation_available=ai_available,
             alternatives=alts or None,
-            action_checklist=gemini_analysis.get("action_checklist"),
-            preparation_tips=gemini_analysis.get("preparation_tips"),
+            action_checklist=ai_analysis.get("action_checklist"),
+            preparation_tips=ai_analysis.get("preparation_tips"),
+            career_paths=additional_data.get("career_paths"),
+            groq_reasoning=groq_reasoning,
         )
 
 

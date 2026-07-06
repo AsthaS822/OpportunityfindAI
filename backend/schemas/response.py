@@ -19,9 +19,18 @@ class AlternativeSchema(BaseModel):
     official_url: Optional[str] = None
 
 
+class GroqReasoningSchema(BaseModel):
+    reasoning: List[str] = []
+    recommendations: List[Dict[str, Any]] = []
+    comparison: Optional[str] = None
+    roadmap: List[str] = []
+    action_checklist: List[str] = []
+    preparation_tips: Dict[str, List[str]] = {}
+    ai_available: bool = False
+
+
 class DiscoverResponse(BaseModel):
     query: str
-    language: str
     thinking_steps: List[str]
     summary: str
     roadmap: List[str]
@@ -41,3 +50,7 @@ class DiscoverResponse(BaseModel):
     alternatives: Optional[List[AlternativeSchema]] = None
     action_checklist: Optional[List[str]] = None
     preparation_tips: Optional[Dict[str, List[str]]] = None
+    career_paths: Optional[List[Dict]] = None
+    recommendation_categories: Optional[Dict[str, Optional[OpportunitySchema]]] = None
+    recommendation_others: Optional[List[OpportunitySchema]] = None
+    groq_reasoning: Optional[GroqReasoningSchema] = None
