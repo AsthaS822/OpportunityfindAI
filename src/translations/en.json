@@ -1,0 +1,82 @@
+{
+  "landing": {
+    "hero_title": "Discover every opportunity",
+    "hero_subtitle": "One AI. Every Opportunity.",
+    "hero_desc": "Scholarships, government schemes, education loans, and fellowships — discovered, matched, and explained by AI in seconds.",
+    "ask_placeholder": "Ask OpportunityOS AI...",
+    "analyze": "Analyze",
+    "suggestions": "Suggestions",
+    "see_demo": "See Demo",
+    "footer_ready": "Ready to find your next opportunity?",
+    "footer_start": "Start Exploring",
+    "nav_about": "About"
+  },
+  "workspace": {
+    "newDiscovery": "+ New Discovery",
+    "quickPrompts": "Quick Prompts",
+    "help": "Help",
+    "about": "About OpportunityOS",
+    "empty_greeting": "Hello 👋",
+    "empty_desc": "Describe your goal. I'll discover scholarships, fellowships, government schemes, loans, internships and grants matched to your profile.",
+    "input_placeholder": "Ask anything...",
+    "analyze_btn": "Analyze →",
+    "prompt_scholarships": "🎓 Scholarships",
+    "prompt_schemes": "🏛 Govt Schemes",
+    "prompt_abroad": "🌍 Study Abroad",
+    "prompt_loans": "💰 Loans",
+    "prompt_startup": "🚀 Startup Grants",
+    "prompt_mba": "🎓 MBA Scholarships",
+    "prompt_germany": "🇩🇪 Study in Germany"
+  },
+  "card": {
+    "funding": "Funding",
+    "deadline": "Deadline",
+    "eligibility": "Eligibility",
+    "source": "Official Source",
+    "details": "View Details",
+    "decision": "Decision Summary",
+    "match": "Match",
+    "fullFunding": "Fully Funded",
+    "partialFunding": "Partial Funding",
+    "officialSource": "Official Source",
+    "verified": "Verified",
+    "difficulty": "Difficulty",
+    "viewDetails": "View Details",
+    "compare": "Compare"
+  },
+  "panel": {
+    "discover": "Discover",
+    "compare": "Compare",
+    "explain": "Explain",
+    "plan": "Plan",
+    "verified_sources": "Verified Sources",
+    "countries": "Countries",
+    "programs": "Programs"
+  },
+  "ai": {
+    "thinking": "AI is thinking...",
+    "step1": "Understanding requirements",
+    "step2": "Searching verified sources",
+    "step3": "Checking eligibility",
+    "step4": "Comparing opportunities",
+    "step5": "Finding alternatives",
+    "step6": "Preparing decision report"
+  },
+  "chat": {
+    "just_now": "Just now"
+  },
+  "eligibility": {
+    "title": "Why you match",
+    "reason1": "You have a B.Tech with an 8.6 CGPA, matching the 8.0+ requirement.",
+    "reason2": "You are applying for a Master's program in Germany, which aligns with DAAD."
+  },
+  "followup": {
+    "label": "Follow-ups",
+    "full": "Full funding details",
+    "alt": "Show alternative options",
+    "loans": "Compare education loans"
+  },
+  "footer": {
+    "rights": "© 2026 OpportunityOS AI. All rights reserved."
+  }
+}
